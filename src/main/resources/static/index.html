@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Tester - UAS Backend</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --card2: #22263a;
+    --border: #2e3349; --accent: #6c63ff; --accent2: #ff6b9d;
+    --green: #00d4a0; --red: #ff4f6d; --yellow: #ffd166;
+    --text: #e2e8f0; --muted: #7b88a8;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; }
+  
+  /* HEADER */
+  header { background:linear-gradient(135deg,#1a1d27,#22263a); border-bottom:1px solid var(--border);
+    padding:24px 40px; display:flex; align-items:center; gap:16px; }
+  .logo { width:44px; height:44px; background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:22px; }
+  header h1 { font-size:22px; font-weight:700; }
+  header p { color:var(--muted); font-size:13px; margin-top:2px; }
+  .badge { background:var(--green); color:#000; font-size:11px; font-weight:600;
+    padding:2px 8px; border-radius:20px; margin-left:8px; }
+
+  /* LAYOUT */
+  .container { max-width:1100px; margin:0 auto; padding:40px 24px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+  @media(max-width:768px){ .grid { grid-template-columns:1fr; } }
+
+  /* CARDS */
+  .card { background:var(--card); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+  .card-header { padding:20px 24px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:12px; }
+  .method { font-size:11px; font-weight:700; padding:3px 10px; border-radius:6px; font-family:'JetBrains Mono',monospace; }
+  .post { background:rgba(108,99,255,0.2); color:var(--accent); border:1px solid rgba(108,99,255,0.4); }
+  .card-title { font-size:15px; font-weight:600; }
+  .endpoint { font-size:12px; color:var(--muted); font-family:'JetBrains Mono',monospace; margin-top:2px; }
+  .card-body { padding:24px; }
+
+  /* FORM */
+  .field { margin-bottom:16px; }
+  label { display:block; font-size:12px; font-weight:500; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px; }
+  input, select { width:100%; background:var(--card2); border:1px solid var(--border); border-radius:8px;
+    padding:10px 14px; color:var(--text); font-size:14px; font-family:'Inter',sans-serif;
+    transition:border-color .2s, box-shadow .2s; outline:none; }
+  input:focus, select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(108,99,255,0.15); }
+  select option { background:var(--card2); }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  /* BUTTON */
+  .btn { width:100%; padding:12px; border:none; border-radius:10px; cursor:pointer;
+    font-size:14px; font-weight:600; font-family:'Inter',sans-serif;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff; letter-spacing:.3px; transition:opacity .2s, transform .1s;
+    display:flex; align-items:center; justify-content:center; gap:8px; margin-top:8px; }
+  .btn:hover { opacity:.9; }
+  .btn:active { transform:scale(.98); }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .spin { animation:spin 1s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* RESPONSE */
+  .response { margin-top:20px; border-radius:10px; overflow:hidden; display:none; }
+  .response.show { display:block; animation:fadeIn .3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .res-header { padding:10px 16px; font-size:12px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .res-header.success { background:rgba(0,212,160,0.15); color:var(--green); border:1px solid rgba(0,212,160,0.3); border-bottom:none; }
+  .res-header.error   { background:rgba(255,79,109,0.15);  color:var(--red);   border:1px solid rgba(255,79,109,0.3);  border-bottom:none; }
+  pre { background:#0d1117; padding:16px; font-family:'JetBrains Mono',monospace; font-size:12.5px;
+    line-height:1.7; overflow-x:auto; color:#c9d1d9;
+    border:1px solid var(--border); border-radius:0 0 10px 10px; }
+
+  /* STATUS BAR */
+  .status-bar { background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:16px 24px; margin-bottom:32px; display:flex; align-items:center; gap:12px; }
+  .dot { width:10px; height:10px; border-radius:50%; background:var(--green);
+    box-shadow:0 0 8px var(--green); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .dot.offline { background:var(--red); box-shadow:0 0 8px var(--red); animation:none; }
+  .status-text { font-size:13px; color:var(--muted); }
+  .status-text strong { color:var(--text); }
+  .check-btn { margin-left:auto; background:var(--card2); border:1px solid var(--border);
+    color:var(--text); padding:6px 16px; border-radius:8px; cursor:pointer; font-size:13px;
+    font-family:'Inter',sans-serif; transition:border-color .2s; }
+  .check-btn:hover { border-color:var(--accent); }
+
+  /* SECTION TITLE */
+  .section-title { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:1px;
+    color:var(--muted); margin-bottom:20px; }
+
+  /* TOKEN DISPLAY */
+  .token-box { background:rgba(108,99,255,0.1); border:1px solid rgba(108,99,255,0.3);
+    border-radius:8px; padding:10px 14px; margin-top:12px; display:none; }
+  .token-box.show { display:block; }
+  .token-label { font-size:11px; color:var(--accent); font-weight:600; margin-bottom:4px; }
+  .token-val { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text);
+    word-break:break-all; }
+
+  /* DIVIDER */
+  hr { border:none; border-top:1px solid var(--border); margin:32px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🚀</div>
+  <div>
+    <h1>UAS Backend API Tester <span class="badge">LIVE</span></h1>
+    <p>Spring Boot • MySQL • db_stdata • Port 8080</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <div class="dot" id="statusDot"></div>
+    <div class="status-text">
+      Server: <strong id="statusText">Memeriksa koneksi...</strong>
+    </div>
+    <button class="check-btn" onclick="checkServer()">🔄 Cek Ulang</button>
+  </div>
+
+  <!-- REGISTER & LOGIN -->
+  <p class="section-title">🔐 Authentication Endpoints</p>
+  <div class="grid">
+
+    <!-- REGISTER -->
+    <div class="card">
+      <div class="card-header">
+        <span class="method post">POST</span>
+        <div>
+          <div class="card-title">Register</div>
+          <div class="endpoint">/api/auth/register</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="field"><label>Email *</label>
+          <input id="reg-email" type="email" placeholder="user@example.com"></div>
+        <div class="field"><label>Password * (min 6 karakter)</label>
+          <input id="reg-password" type="password" placeholder="••••••••"></div>
+        <div class="row2">
+          <div class="field"><label>Berat Badan (kg) *</label>
+            <input id="reg-berat" type="number" placeholder="70" step="0.1"></div>
+          <div class="field"><label>Tinggi Badan (cm) *</label>
+            <input id="reg-tinggi" type="number" placeholder="170" step="0.1"></div>
+        </div>
+        <div class="field"><label>Tanggal Lahir *</label>
+          <input id="reg-tgl" type="date"></div>
+        <div class="field"><label>Tujuan / Target *</label>
+          <select id="reg-target">
+            <option value="">-- Pilih Target --</option>
+            <option value="menurunkan_berat_badan">Menurunkan Berat Badan</option>
+            <option value="menaikkan_berat_badan">Menaikkan Berat Badan</option>
+            <option value="menstabilkan_berat_badan">Menstabilkan Berat Badan</option>
+          </select>
+        </div>
+        <div class="field"><label>Jenis Kegiatan *</label>
+          <select id="reg-kegiatan">
+            <option value="">-- Pilih Kegiatan --</option>
+            <option value="ringan">Ringan (duduk, kerja kantoran)</option>
+            <option value="sedang">Sedang (olahraga 3-5x/minggu)</option>
+            <option value="berat">Berat (olahraga intense setiap hari)</option>
+          </select>
+        </div>
+        <button class="btn" id="reg-btn" onclick="doRegister()">
+          <span>✨ Register</span>
+        </button>
+        <div class="token-box" id="reg-token-box">
+          <div class="token-label">🔑 Token Diterima:</div>
+          <div class="token-val" id="reg-token-val"></div>
+        </div>
+        <div class="response" id="reg-response">
+          <div class="res-header" id="reg-res-header"></div>
+          <pre id="reg-res-body"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOGIN -->
+    <div class="card">
+      <div class="card-header">
+        <span class="method post">POST</span>
+        <div>
+          <div class="card-title">Login</div>
+          <div class="endpoint">/api/auth/login</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="field"><label>Email *</label>
+          <input id="login-email" type="email" placeholder="user@example.com"></div>
+        <div class="field"><label>Password *</label>
+          <input id="login-password" type="password" placeholder="••••••••"></div>
+        <button class="btn" id="login-btn" onclick="doLogin()" style="margin-top:24px">
+          <span>🔓 Login</span>
+        </button>
+        <div class="token-box" id="login-token-box">
+          <div class="token-label">🔑 Token Diterima:</div>
+          <div class="token-val" id="login-token-val"></div>
+        </div>
+        <div class="response" id="login-response">
+          <div class="res-header" id="login-res-header"></div>
+          <pre id="login-res-body"></pre>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /grid -->
+
+</div><!-- /container -->
+
+<script>
+const BASE = '';  // Same origin - served by Spring Boot
+
+async function checkServer() {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  dot.className = 'dot offline';
+  txt.textContent = 'Memeriksa...';
+  try {
+    const r = await fetch(BASE + '/api/auth/ping', {method:'GET'});
+    dot.className = 'dot';
+    txt.textContent = 'Server berjalan di localhost:8080 ✓';
+  } catch(e) {
+    try {
+      // Try register with bad data to see if server is up
+      const r2 = await fetch(BASE + '/api/auth/register', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:'{}', signal: AbortSignal.timeout(3000)
+      });
+      dot.className = 'dot';
+      txt.textContent = 'Server berjalan di localhost:8080 ✓';
+    } catch(e2) {
+      dot.className = 'dot offline';
+      txt.textContent = 'Server offline - jalankan: .\\mvnw.cmd spring-boot:run';
+    }
+  }
+}
+
+function setLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  if(loading) {
+    btn.disabled = true;
+    btn.innerHTML = '<span style="display:inline-block;animation:spin 1s linear infinite">⟳</span> Mengirim...';
+  } else {
+    btn.disabled = false;
+  }
+}
+
+function showResponse(prefix, status, isOk, data) {
+  const resEl   = document.getElementById(prefix + '-response');
+  const headEl  = document.getElementById(prefix + '-res-header');
+  const bodyEl  = document.getElementById(prefix + '-res-body');
+  resEl.className = 'response show';
+  headEl.className = 'res-header ' + (isOk ? 'success' : 'error');
+  headEl.innerHTML = (isOk ? '✅' : '❌') + ' HTTP ' + status;
+  bodyEl.textContent = JSON.stringify(data, null, 2);
+}
+
+async function doRegister() {
+  setLoading('reg-btn', true);
+  const payload = {
+    email:       document.getElementById('reg-email').value,
+    password:    document.getElementById('reg-password').value,
+    beratBadan:  parseFloat(document.getElementById('reg-berat').value) || null,
+    tinggiBadan: parseFloat(document.getElementById('reg-tinggi').value) || null,
+    tanggalLahir: document.getElementById('reg-tgl').value,
+    target:      document.getElementById('reg-target').value,
+    jenisKegiatan: document.getElementById('reg-kegiatan').value
+  };
+  try {
+    const r = await fetch(BASE + '/api/auth/register', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await r.json();
+    const ok = r.status === 201;
+    showResponse('reg', r.status, ok, data);
+    if(ok && data.token) {
+      document.getElementById('reg-token-val').textContent = data.token;
+      document.getElementById('reg-token-box').className = 'token-box show';
+      // Auto-fill login
+      document.getElementById('login-email').value = payload.email;
+      document.getElementById('login-password').value = payload.password;
+    }
+  } catch(e) {
+    showResponse('reg', 'Error', false, {status:'error', message:'Tidak dapat terhubung ke server. Pastikan server berjalan!'});
+  }
+  document.getElementById('reg-btn').disabled = false;
+  document.getElementById('reg-btn').innerHTML = '<span>✨ Register</span>';
+}
+
+async function doLogin() {
+  setLoading('login-btn', true);
+  const payload = {
+    email:    document.getElementById('login-email').value,
+    password: document.getElementById('login-password').value
+  };
+  try {
+    const r = await fetch(BASE + '/api/auth/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await r.json();
+    const ok = r.status === 200;
+    showResponse('login', r.status, ok, data);
+    if(ok && data.token) {
+      document.getElementById('login-token-val').textContent = data.token;
+      document.getElementById('login-token-box').className = 'token-box show';
+    }
+  } catch(e) {
+    showResponse('login', 'Error', false, {status:'error', message:'Tidak dapat terhubung ke server. Pastikan server berjalan!'});
+  }
+  document.getElementById('login-btn').disabled = false;
+  document.getElementById('login-btn').innerHTML = '<span>🔓 Login</span>';
+}
+
+// Auto-check on load
+checkServer();
+</script>
+</body>
+</html>
