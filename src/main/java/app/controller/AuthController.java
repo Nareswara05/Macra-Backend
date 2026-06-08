@@ -122,6 +122,15 @@ public class AuthController {
             if (userRepository.existsByEmail(email.trim()))
                 return conflict("Email sudah terdaftar!");
 
+
+            String nama = (String) body.get("nama");
+            if (nama == null || nama.trim().isEmpty())
+                return badRequest("Nama wajib diisi");
+            if (nama.length() < 4)
+                return badRequest("Nama minimal 3 karakter");
+            
+
+
             // --- Validasi Password ---
             String password = (String) body.get("password");
             if (password == null || password.trim().isEmpty())
@@ -167,9 +176,14 @@ public class AuthController {
             // --- Hash Password & Simpan ke Database ---
             String hashedPassword = HashUtils.hashPassword(password);
             User newUser = new User(
-                email.trim(), hashedPassword,
-                beratBadan, tinggiBadan,
-                tanggalLahir, target.trim(), jenisKegiatan.trim()
+                email.trim(),       // 1. String email
+                nama.trim(),        // 2. String nama 
+                hashedPassword,     // 3. String password
+                beratBadan,         // 4. Double beratBadan
+                tinggiBadan,        // 5. Double tinggiBadan
+                tanggalLahir,       // 6. LocalDate tanggalLahir
+                target.trim(),      // 7. String target
+                jenisKegiatan.trim()// 8. String jenisKegiatan
             );
             userRepository.save(newUser);
 
@@ -270,6 +284,7 @@ public class AuthController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("id", user.getId());
         data.put("email", user.getEmail());
+        data.put("nama", user.getNama());
         data.put("beratBadan", user.getBeratBadan());
         data.put("tinggiBadan", user.getTinggiBadan());
         data.put("tanggalLahir", user.getTanggalLahir());

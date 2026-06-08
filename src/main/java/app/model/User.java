@@ -48,6 +48,9 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "nama", nullable = false) 
+    private String nama;
+
     /** Email pengguna - harus unik, tidak boleh kosong */
     @Column(name = "email", unique = true, nullable = false)
     private String email;
@@ -103,6 +106,7 @@ public class User {
      * Constructor lengkap - digunakan saat mendaftarkan user baru.
      *
      * @param email         Email pengguna
+     * @param nama
      * @param password      Password yang sudah di-hash SHA-256
      * @param beratBadan    Berat badan dalam kg
      * @param tinggiBadan   Tinggi badan dalam cm
@@ -110,9 +114,9 @@ public class User {
      * @param target        Tujuan pengguna
      * @param jenisKegiatan Tingkat aktivitas fisik
      */
-    public User(String email, String password, Double beratBadan, Double tinggiBadan,
-                LocalDate tanggalLahir, String target, String jenisKegiatan) {
+    public User(String email, String nama, String password, Double beratBadan, Double tinggiBadan, LocalDate tanggalLahir, String target, String jenisKegiatan) {
         this.email = email;
+        this.nama = nama;
         this.password = password;
         this.beratBadan = beratBadan;
         this.tinggiBadan = tinggiBadan;
@@ -133,6 +137,9 @@ public class User {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+
+    public String getNama() {return nama;}
+    public void setNama(String nama) {this.nama = nama;}
 
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
