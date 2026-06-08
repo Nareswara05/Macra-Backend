@@ -1,5 +1,8 @@
 app\controller\AuthController.class
 app\model\User.class
 app\repository\UserRepository.class
+app\controller\DashboardController.class
 app\BackendApplication.class
+app\model\NutrisiHarian.class
 app\util\HashUtils.class
+app\repository\NutrisiHarianRepository.class

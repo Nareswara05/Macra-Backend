@@ -127,7 +127,7 @@ public class User {
      * Constructor lengkap - digunakan saat mendaftarkan user baru.
      *
      * @param email         Email pengguna
-     * @param nama
+     * @param nama          Nama pengguna
      * @param password      Password yang sudah di-hash SHA-256
      * @param gender        Jenis kelamin pengguna
      * @param beratBadan    Berat badan dalam kg
@@ -136,7 +136,7 @@ public class User {
      * @param target        Tujuan pengguna
      * @param jenisKegiatan Tingkat aktivitas fisik
      */
-    public User(String email, String nama, String password, Double beratBadan, Double tinggiBadan, LocalDate tanggalLahir, String target, String jenisKegiatan) {
+    public User(String email, String nama, String password, String gender, Double beratBadan, Double tinggiBadan, LocalDate tanggalLahir, String target, String jenisKegiatan) {
         this.email = email;
         this.nama = nama;
         this.password = password;

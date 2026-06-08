@@ -131,6 +131,7 @@ public class DashboardController {
             userData.put("id", user.getId());
             userData.put("email", user.getEmail());
             userData.put("gender", user.getGender());
+            userData.put("nama", user.getNama());
             userData.put("beratBadan", user.getBeratBadan());
             userData.put("tinggiBadan", user.getTinggiBadan());
             userData.put("usia", hitungUsia(user));

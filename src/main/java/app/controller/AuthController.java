@@ -188,14 +188,15 @@ public class AuthController {
             String hashedPassword = HashUtils.hashPassword(password);
             String token = UUID.randomUUID().toString(); // Generate token unik
             User newUser = new User(
-                email.trim(),       // 1. String email
-                nama.trim(),        // 2. String nama 
-                hashedPassword,     // 3. String password gender.trim(),
-                beratBadan,         // 4. Double beratBadan
-                tinggiBadan,        // 5. Double tinggiBadan
-                tanggalLahir,       // 6. LocalDate tanggalLahir
-                target.trim(),      // 7. String target
-                jenisKegiatan.trim()// 8. String jenisKegiatan
+                email.trim(),           // 1. String email
+                nama.trim(),            // 2. String nama 
+                hashedPassword,         // 3. String password
+                gender.trim(),          // 4. String gender
+                beratBadan,             // 5. Double beratBadan
+                tinggiBadan,            // 6. Double tinggiBadan
+                tanggalLahir,           // 7. LocalDate tanggalLahir
+                target.trim(),          // 8. String target
+                jenisKegiatan.trim()    // 9. String jenisKegiatan
             );
             newUser.setToken(token); // Simpan token ke database
             userRepository.save(newUser);
