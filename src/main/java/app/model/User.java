@@ -30,11 +30,13 @@ import java.time.LocalDate;
  * │ id              │ BIGINT        │ Primary Key, auto increment               │
  * │ email           │ VARCHAR(255)  │ Email unik, tidak boleh kosong            │
  * │ password        │ VARCHAR(255)  │ Password dalam bentuk SHA-256 hash        │
+ * │ gender          │ VARCHAR(10)   │ Jenis kelamin: pria / wanita              │
  * │ berat_badan     │ DOUBLE        │ Berat badan pengguna dalam kg             │
  * │ tinggi_badan    │ DOUBLE        │ Tinggi badan pengguna dalam cm            │
  * │ tanggal_lahir   │ DATE          │ Tanggal lahir (format: YYYY-MM-DD)        │
  * │ target          │ VARCHAR(255)  │ Tujuan: menurunkan/menaikkan/menstabilkan │
  * │ jenis_kegiatan  │ VARCHAR(255)  │ Aktivitas: ringan / sedang / berat        │
+ * │ token           │ VARCHAR(255)  │ Session token (UUID) dari login terakhir  │
  * └─────────────────┴───────────────┴───────────────────────────────────────────┘
  *
  * ============================================================
@@ -58,6 +60,16 @@ public class User {
     /** Password pengguna - disimpan dalam bentuk SHA-256 hash (bukan plain text!) */
     @Column(name = "password", nullable = false)
     private String password;
+
+    /**
+     * Jenis kelamin pengguna.
+     * Nilai yang valid:
+     *   - "pria"
+     *   - "wanita"
+     * Digunakan untuk kalkulasi BMR (Basal Metabolic Rate) yang akurat.
+     */
+    @Column(name = "gender", nullable = false)
+    private String gender;
 
     /** Berat badan dalam satuan kilogram (kg) */
     @Column(name = "berat_badan")
@@ -91,6 +103,15 @@ public class User {
     @Column(name = "jenis_kegiatan")
     private String jenisKegiatan;
 
+    /**
+     * Session token yang di-generate saat login/register.
+     * Digunakan untuk autentikasi endpoint yang memerlukan login.
+     * Dikirim melalui header: Authorization: Bearer <token>
+     * Nilai berubah setiap kali user login.
+     */
+    @Column(name = "token", unique = true)
+    private String token;
+
     // ============================================================
     // CONSTRUCTORS
     // Constructor = cara membuat object User baru
@@ -108,6 +129,7 @@ public class User {
      * @param email         Email pengguna
      * @param nama
      * @param password      Password yang sudah di-hash SHA-256
+     * @param gender        Jenis kelamin pengguna
      * @param beratBadan    Berat badan dalam kg
      * @param tinggiBadan   Tinggi badan dalam cm
      * @param tanggalLahir  Tanggal lahir
@@ -118,6 +140,7 @@ public class User {
         this.email = email;
         this.nama = nama;
         this.password = password;
+        this.gender = gender;
         this.beratBadan = beratBadan;
         this.tinggiBadan = tinggiBadan;
         this.tanggalLahir = tanggalLahir;
@@ -144,6 +167,9 @@ public class User {
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
 
+    public String getGender() { return gender; }
+    public void setGender(String gender) { this.gender = gender; }
+
     public Double getBeratBadan() { return beratBadan; }
     public void setBeratBadan(Double beratBadan) { this.beratBadan = beratBadan; }
 
@@ -158,4 +184,7 @@ public class User {
 
     public String getJenisKegiatan() { return jenisKegiatan; }
     public void setJenisKegiatan(String jenisKegiatan) { this.jenisKegiatan = jenisKegiatan; }
+
+    public String getToken() { return token; }
+    public void setToken(String token) { this.token = token; }
 }
