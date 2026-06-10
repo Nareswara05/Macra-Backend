@@ -84,12 +84,17 @@ public class AuthController {
      *   {
      *     "email"         : "user@example.com",
      *     "password"      : "password123",
+     *     "gender"        : "pria",
      *     "beratBadan"    : 70.5,
      *     "tinggiBadan"   : 175.0,
      *     "tanggalLahir"  : "2000-05-15",
      *     "target"        : "menurunkan_berat_badan",
      *     "jenisKegiatan" : "sedang"
      *   }
+     *
+     * Nilai gender yang valid:
+     *   - "pria"
+     *   - "wanita"
      *
      * Nilai target yang valid:
      *   - "menurunkan_berat_badan"
@@ -122,12 +127,27 @@ public class AuthController {
             if (userRepository.existsByEmail(email.trim()))
                 return conflict("Email sudah terdaftar!");
 
+
+            String nama = (String) body.get("nama");
+            if (nama == null || nama.trim().isEmpty())
+                return badRequest("Nama wajib diisi");
+            if (nama.length() < 4)
+                return badRequest("Nama minimal 3 karakter");
+            
+
+
             // --- Validasi Password ---
             String password = (String) body.get("password");
             if (password == null || password.trim().isEmpty())
                 return badRequest("Password wajib diisi!");
             if (password.length() < 6)
                 return badRequest("Password minimal 6 karakter!");
+
+            // --- Validasi Gender ---
+            String gender = (String) body.get("gender");
+            List<String> validGender = Arrays.asList("pria", "wanita");
+            if (gender == null || !validGender.contains(gender.trim()))
+                return badRequest("Gender tidak valid! Pilihan: pria | wanita");
 
             // --- Validasi Berat Badan ---
             Double beratBadan = parseDouble(body.get("beratBadan"));
@@ -166,15 +186,22 @@ public class AuthController {
 
             // --- Hash Password & Simpan ke Database ---
             String hashedPassword = HashUtils.hashPassword(password);
+            String token = UUID.randomUUID().toString(); // Generate token unik
             User newUser = new User(
-                email.trim(), hashedPassword,
-                beratBadan, tinggiBadan,
-                tanggalLahir, target.trim(), jenisKegiatan.trim()
+                email.trim(),           // 1. String email
+                nama.trim(),            // 2. String nama 
+                hashedPassword,         // 3. String password
+                gender.trim(),          // 4. String gender
+                beratBadan,             // 5. Double beratBadan
+                tinggiBadan,            // 6. Double tinggiBadan
+                tanggalLahir,           // 7. LocalDate tanggalLahir
+                target.trim(),          // 8. String target
+                jenisKegiatan.trim()    // 9. String jenisKegiatan
             );
+            newUser.setToken(token); // Simpan token ke database
             userRepository.save(newUser);
 
             // --- Kirim Response Sukses ---
-            String token = UUID.randomUUID().toString(); // Generate token unik
             Map<String, Object> res = new LinkedHashMap<>();
             res.put("status", "success");
             res.put("message", "Registrasi berhasil!");
@@ -240,12 +267,137 @@ public class AuthController {
             if (!HashUtils.hashPassword(password).equals(user.getPassword()))
                 return unauthorized("Email atau password salah!");
 
+            // --- Generate & Simpan Token Baru ke Database ---
+            String token = UUID.randomUUID().toString();
+            user.setToken(token);
+            userRepository.save(user);
+
             // --- Kirim Response Sukses ---
-            String token = UUID.randomUUID().toString(); // Generate token unik
             Map<String, Object> res = new LinkedHashMap<>();
             res.put("status", "success");
             res.put("message", "Login berhasil!");
             res.put("token", token);
+            res.put("data", buildUserData(user));
+            return ResponseEntity.ok(res);
+
+        } catch (Exception e) {
+            return serverError("Terjadi kesalahan server: " + e.getMessage());
+        }
+    }
+
+    // ============================================================
+    // PUT /api/auth/profile
+    // ============================================================
+
+    /**
+     * Endpoint untuk memperbarui data profil pengguna yang sudah login.
+     * Semua field bersifat OPSIONAL — hanya field yang dikirim yang akan diupdate.
+     * Berguna untuk user lama yang belum punya field 'gender', atau ingin
+     * mengubah berat badan, target, dll tanpa harus register ulang.
+     *
+     * Cara pakai (dari Postman/aplikasi):
+     *   Method  : PUT
+     *   URL     : http://localhost:8080/api/auth/profile
+     *   Headers : Authorization: Bearer <token_dari_login>
+     *   Body    : JSON (raw) — kirim hanya field yang ingin diubah
+     *   {
+     *     "gender"        : "pria",
+     *     "beratBadan"    : 72.0,
+     *     "tinggiBadan"   : 175.0,
+     *     "tanggalLahir"  : "2000-05-15",
+     *     "target"        : "menstabilkan_berat_badan",
+     *     "jenisKegiatan" : "berat"
+     *   }
+     *
+     * Response sukses (HTTP 200):
+     *   { "status": "success", "message": "Profil berhasil diperbarui!", "data": {...} }
+     *
+     * Response gagal (HTTP 401): Token tidak valid
+     *
+     * @param authHeader Nilai header "Authorization" (format: "Bearer <token>")
+     * @param body       Data profil yang ingin diperbarui (semua opsional)
+     * @return ResponseEntity berisi data user terbaru
+     */
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateProfile(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody Map<String, Object> body) {
+        try {
+            // --- Autentikasi: Ekstrak & Validasi Token ---
+            if (authHeader == null || !authHeader.startsWith("Bearer "))
+                return unauthorized("Token tidak disertakan! Gunakan header: Authorization: Bearer <token>");
+
+            String token = authHeader.substring(7).trim();
+            Optional<User> userOpt = userRepository.findByToken(token);
+            if (!userOpt.isPresent())
+                return unauthorized("Token tidak valid atau sudah kedaluwarsa!");
+
+            User user = userOpt.get();
+
+            // --- Update Gender (jika dikirim) ---
+            if (body.containsKey("gender")) {
+                String gender = (String) body.get("gender");
+                List<String> validGender = Arrays.asList("pria", "wanita");
+                if (gender == null || !validGender.contains(gender.trim()))
+                    return badRequest("Gender tidak valid! Pilihan: pria | wanita");
+                user.setGender(gender.trim());
+            }
+
+            // --- Update Berat Badan (jika dikirim) ---
+            if (body.containsKey("beratBadan")) {
+                Double beratBadan = parseDouble(body.get("beratBadan"));
+                if (beratBadan == null || beratBadan <= 0)
+                    return badRequest("Berat badan harus lebih dari 0!");
+                user.setBeratBadan(beratBadan);
+            }
+
+            // --- Update Tinggi Badan (jika dikirim) ---
+            if (body.containsKey("tinggiBadan")) {
+                Double tinggiBadan = parseDouble(body.get("tinggiBadan"));
+                if (tinggiBadan == null || tinggiBadan <= 0)
+                    return badRequest("Tinggi badan harus lebih dari 0!");
+                user.setTinggiBadan(tinggiBadan);
+            }
+
+            // --- Update Tanggal Lahir (jika dikirim) ---
+            if (body.containsKey("tanggalLahir")) {
+                String tglStr = (String) body.get("tanggalLahir");
+                if (tglStr == null || tglStr.trim().isEmpty())
+                    return badRequest("Format tanggal tidak valid! Gunakan: YYYY-MM-DD");
+                try {
+                    user.setTanggalLahir(LocalDate.parse(tglStr.trim()));
+                } catch (Exception e) {
+                    return badRequest("Format tanggal tidak valid! Gunakan: YYYY-MM-DD (contoh: 2000-05-15)");
+                }
+            }
+
+            // --- Update Target (jika dikirim) ---
+            if (body.containsKey("target")) {
+                String target = (String) body.get("target");
+                List<String> validTarget = Arrays.asList(
+                    "menurunkan_berat_badan", "menaikkan_berat_badan", "menstabilkan_berat_badan"
+                );
+                if (target == null || !validTarget.contains(target.trim()))
+                    return badRequest("Target tidak valid! Pilihan: menurunkan_berat_badan | menaikkan_berat_badan | menstabilkan_berat_badan");
+                user.setTarget(target.trim());
+            }
+
+            // --- Update Jenis Kegiatan (jika dikirim) ---
+            if (body.containsKey("jenisKegiatan")) {
+                String jenisKegiatan = (String) body.get("jenisKegiatan");
+                List<String> validKegiatan = Arrays.asList("ringan", "sedang", "berat");
+                if (jenisKegiatan == null || !validKegiatan.contains(jenisKegiatan.trim()))
+                    return badRequest("Jenis kegiatan tidak valid! Pilihan: ringan | sedang | berat");
+                user.setJenisKegiatan(jenisKegiatan.trim());
+            }
+
+            // --- Simpan Perubahan ke Database ---
+            userRepository.save(user);
+
+            // --- Kirim Response Sukses ---
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("status", "success");
+            res.put("message", "Profil berhasil diperbarui!");
             res.put("data", buildUserData(user));
             return ResponseEntity.ok(res);
 

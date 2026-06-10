@@ -43,13 +43,20 @@ d:\JAVA PROJECT\UAS\
     │   ├── 📄 BackendApplication.java   → [MAIN] Titik masuk aplikasi, dijalankan pertama kali
     │   │
     │   ├── 📁 model\                    → Representasi tabel database
-    │   │   └── 📄 User.java            → Data pengguna (email, password, profil)
+    │   │   ├── 📄 User.java            → Data pengguna (nama, email, gender, profil)
+    │   │   ├── 📄 NutrisiHarian.java   → Ringkasan konsumsi nutrisi harian pengguna
+    │   │   ├── 📄 MakananRiwayat.java  → Detail riwayat makanan yang dikonsumsi
+    │   │   └── 📄 AktivitasRiwayat.java → Detail riwayat aktivitas/olahraga
     │   │
     │   ├── 📁 repository\               → Akses & query ke database
-    │   │   └── 📄 UserRepository.java  → Operasi CRUD untuk tabel users
+    │   │   ├── 📄 UserRepository.java  → Operasi CRUD untuk tabel users
+    │   │   ├── 📄 NutrisiHarianRepository.java → Operasi CRUD untuk tabel nutrisi_harian
+    │   │   ├── 📄 MakananRiwayatRepository.java → Operasi CRUD untuk tabel makanan_riwayat
+    │   │   └── 📄 AktivitasRiwayatRepository.java → Operasi CRUD untuk tabel aktivitas_riwayat
     │   │
     │   ├── 📁 controller\               → Penerima request & pengirim response
-    │   │   └── 📄 AuthController.java  → Endpoint register & login
+    │   │   ├── 📄 AuthController.java  → Endpoint register, login & update profil
+    │   │   └── 📄 DashboardController.java → Endpoint dashboard, konsumsi, aktivitas & riwayat
     │   │
     │   └── 📁 util\                     → Fungsi-fungsi pembantu
     │       └── 📄 HashUtils.java       → Hashing password dengan SHA-256
@@ -64,9 +71,9 @@ d:\JAVA PROJECT\UAS\
 ```
 Request dari Client (Postman/App)
     ↓
-Controller (AuthController) → menerima & validasi request
+Controller (AuthController / DashboardController) → menerima & validasi request
     ↓
-Repository (UserRepository) → ambil/simpan data
+Repository (User/Nutrisi/Makanan/Aktivitas Repository) → ambil/simpan data
     ↓
 Database (MySQL - db_stdata) → penyimpanan data
     ↑
@@ -107,7 +114,7 @@ http://localhost:8080
 ### Langkah 5: Hentikan server
 Tekan `Ctrl + C` di terminal untuk menghentikan server.
 
-> **Catatan:** Database `db_stdata` akan dibuat otomatis jika belum ada. Tabel `users` juga terbuat otomatis saat pertama kali dijalankan.
+> **Catatan:** Database `db_stdata` akan dibuat otomatis jika belum ada. Tabel `users`, `nutrisi_harian`, `makanan_riwayat`, dan `aktivitas_riwayat` juga terbuat otomatis saat pertama kali dijalankan.
 
 ---
 
@@ -126,10 +133,57 @@ spring.datasource.username=root
 spring.datasource.password=
 ```
 
-**Jika MySQL kamu menggunakan password**, ubah baris `spring.datasource.password=` menjadi:
-```properties
-spring.datasource.password=password_kamu
-```
+### Struktur Tabel Database
+
+#### 1. Tabel `users`
+| Nama Kolom | Tipe Data | Keterangan |
+|------------|-----------|------------|
+| `id` | BIGINT | Primary Key, auto increment |
+| `nama` | VARCHAR(255) | Nama lengkap pengguna |
+| `email` | VARCHAR(255) | Email unik, tidak boleh kosong |
+| `password` | VARCHAR(255) | Password dalam bentuk SHA-256 hash |
+| `gender` | VARCHAR(10) | Jenis kelamin: `pria` / `wanita` |
+| `berat_badan` | DOUBLE | Berat badan dalam kg |
+| `tinggi_badan` | DOUBLE | Tinggi badan dalam cm |
+| `tanggal_lahir` | DATE | Tanggal lahir (format: YYYY-MM-DD) |
+| `target` | VARCHAR(255) | Tujuan: menurunkan / menaikkan / menstabilkan |
+| `jenis_kegiatan` | VARCHAR(255) | Aktivitas: ringan / sedang / berat |
+| `token` | VARCHAR(255) | Session token (UUID) dari login terakhir |
+
+#### 2. Tabel `nutrisi_harian`
+| Nama Kolom | Tipe Data | Keterangan |
+|------------|-----------|------------|
+| `id` | BIGINT | Primary Key, auto increment |
+| `user_id` | BIGINT | FK ke tabel users |
+| `tanggal` | DATE | Tanggal ringkasan (auto-reset tiap hari baru) |
+| `kalori_dikonsumsi` | DOUBLE | Total kalori yang dikonsumsi hari ini |
+| `protein_dikonsumsi` | DOUBLE | Total protein yang dikonsumsi (gram) |
+| `karbo_dikonsumsi` | DOUBLE | Total karbohidrat yang dikonsumsi (gram) |
+| `lemak_dikonsumsi` | DOUBLE | Total lemak yang dikonsumsi (gram) |
+| `serat_dikonsumsi` | DOUBLE | Total serat yang dikonsumsi (gram) |
+| `kalori_terbakar` | DOUBLE | Total kalori yang berkurang dari aktivitas (kkal) |
+
+#### 3. Tabel `makanan_riwayat`
+| Nama Kolom | Tipe Data | Keterangan |
+|------------|-----------|------------|
+| `id` | BIGINT | Primary Key, auto increment |
+| `user_id` | BIGINT | FK ke tabel users |
+| `nama_makanan` | VARCHAR(255) | Nama makanan/minuman yang dikonsumsi |
+| `kalori` | DOUBLE | Kandungan kalori (kkal) |
+| `protein` | DOUBLE | Kandungan protein (gram) |
+| `karbo` | DOUBLE | Kandungan karbohidrat (gram) |
+| `lemak` | DOUBLE | Kandungan lemak (gram) |
+| `serat` | DOUBLE | Kandungan serat (gram) |
+| `tanggal` | DATE | Tanggal pencatatan |
+
+#### 4. Tabel `aktivitas_riwayat`
+| Nama Kolom | Tipe Data | Keterangan |
+|------------|-----------|------------|
+| `id` | BIGINT | Primary Key, auto increment |
+| `user_id` | BIGINT | FK ke tabel users |
+| `nama_aktivitas` | VARCHAR(255) | Nama aktivitas olahraga |
+| `kalori` | DOUBLE | Jumlah kalori yang dibakar/dikurangi (kkal) |
+| `tanggal` | DATE | Tanggal pencatatan |
 
 ---
 
@@ -137,19 +191,34 @@ spring.datasource.password=password_kamu
 
 Base URL: `http://localhost:8080`
 
+| # | Method | URL | Auth | Deskripsi |
+|---|--------|-----|------|-----------|
+| 1 | `POST` | `/api/auth/register` | ❌ | Daftarkan akun baru |
+| 2 | `POST` | `/api/auth/login` | ❌ | Masuk ke akun |
+| 3 | `PUT` | `/api/auth/profile` | ✅ Bearer token | Update data profil |
+| 4 | `GET` | `/api/dashboard` | ✅ Bearer token | Dashboard nutrisi harian |
+| 5 | `POST` | `/api/dashboard/tambah-konsumsi` | ✅ Bearer token | Catat makanan + nutrisi |
+| 6 | `POST` | `/api/dashboard/tambah-aktivitas` | ✅ Bearer token | Catat aktivitas + kurangi kalori |
+| 7 | `GET` | `/api/dashboard/history` | ✅ Bearer token | Ambil semua riwayat |
+| 8 | `GET` | `/api/dashboard/history/makanan` | ✅ Bearer token | Ambil riwayat makanan saja |
+| 9 | `GET` | `/api/dashboard/history/aktivitas` | ✅ Bearer token | Ambil riwayat aktivitas saja |
+
+---
+
 ### 1. Register (Daftar Akun Baru)
 
 | | |
 |---|---|
 | **Method** | `POST` |
 | **URL** | `/api/auth/register` |
-| **Deskripsi** | Mendaftarkan pengguna baru ke sistem |
 
 **Request Body (JSON):**
 ```json
 {
+  "nama": "Budi Santoso",
   "email": "budi@example.com",
   "password": "password123",
+  "gender": "pria",
   "beratBadan": 70.5,
   "tinggiBadan": 175.0,
   "tanggalLahir": "2000-05-15",
@@ -157,44 +226,6 @@ Base URL: `http://localhost:8080`
   "jenisKegiatan": "sedang"
 }
 ```
-
-**Pilihan nilai `target`:**
-| Nilai | Keterangan |
-|-------|------------|
-| `menurunkan_berat_badan` | Ingin menurunkan berat badan |
-| `menaikkan_berat_badan` | Ingin menaikkan berat badan |
-| `menstabilkan_berat_badan` | Ingin menjaga berat badan |
-
-**Pilihan nilai `jenisKegiatan`:**
-| Nilai | Keterangan |
-|-------|------------|
-| `ringan` | Aktivitas ringan (duduk, kerja kantoran) |
-| `sedang` | Olahraga 3-5x seminggu |
-| `berat` | Olahraga intens setiap hari |
-
-**Response Sukses (HTTP 201):**
-```json
-{
-  "status": "success",
-  "message": "Registrasi berhasil!",
-  "token": "550e8400-e29b-41d4-a716-446655440000",
-  "data": {
-    "id": 1,
-    "email": "budi@example.com",
-    "beratBadan": 70.5,
-    "tinggiBadan": 175.0,
-    "tanggalLahir": "2000-05-15",
-    "target": "menurunkan_berat_badan",
-    "jenisKegiatan": "sedang"
-  }
-}
-```
-
-**Response Error:**
-| HTTP Status | Kondisi |
-|------------|---------|
-| 400 Bad Request | Data tidak lengkap atau format salah |
-| 409 Conflict | Email sudah terdaftar |
 
 ---
 
@@ -204,7 +235,6 @@ Base URL: `http://localhost:8080`
 |---|---|
 | **Method** | `POST` |
 | **URL** | `/api/auth/login` |
-| **Deskripsi** | Autentikasi pengguna yang sudah terdaftar |
 
 **Request Body (JSON):**
 ```json
@@ -215,110 +245,400 @@ Base URL: `http://localhost:8080`
 ```
 
 **Response Sukses (HTTP 200):**
+Mengembalikan `token` session untuk disertakan di header request berikutnya.
+
+---
+
+### 3. Update Profil
+
+| | |
+|---|---|
+| **Method** | `PUT` |
+| **URL** | `/api/auth/profile` |
+| **Auth** | ✅ Wajib — `Authorization: Bearer <token>` |
+
+Semua field bersifat **opsional** — hanya field yang dikirim yang akan diperbarui.
+
+---
+
+### 4. Dashboard (Kebutuhan & Konsumsi Nutrisi)
+
+| | |
+|---|---|
+| **Method** | `GET` |
+| **URL** | `/api/dashboard` |
+| **Auth** | ✅ Wajib — `Authorization: Bearer <token>` |
+
+Kalkulasi sisa kalori: `kebutuhan.kalori - konsumsi.kalori + terbakar.kalori`
+
+**Response Sukses (HTTP 200):**
 ```json
 {
   "status": "success",
-  "message": "Login berhasil!",
-  "token": "550e8400-e29b-41d4-a716-446655440000",
   "data": {
-    "id": 1,
-    "email": "budi@example.com",
-    "beratBadan": 70.5,
-    "tinggiBadan": 175.0,
-    "tanggalLahir": "2000-05-15",
-    "target": "menurunkan_berat_badan",
-    "jenisKegiatan": "sedang"
+    "user": {
+      "id": 1,
+      "email": "budi@example.com",
+      "gender": "pria",
+      "nama": "Budi Santoso",
+      "beratBadan": 70.5,
+      "tinggiBadan": 175.0,
+      "usia": 25,
+      "tanggalLahir": "2000-05-15",
+      "target": "menurunkan_berat_badan",
+      "jenisKegiatan": "sedang"
+    },
+    "kebutuhanNutrisi": {
+      "kalori": 1927.5,
+      "protein": 120.47,
+      "karbo": 240.94,
+      "lemak": 53.54,
+      "serat": 28.0
+    },
+    "konsumsiHariIni": {
+      "tanggal": "2026-06-08",
+      "kalori": 450.0,
+      "protein": 30.0,
+      "karbo": 60.0,
+      "lemak": 12.0,
+      "serat": 5.0,
+      "kaloriTerbakar": 300.0
+    },
+    "sisaKebutuhan": {
+      "kalori": 1777.5,
+      "protein": 90.47,
+      "karbo": 180.94,
+      "lemak": 41.54,
+      "serat": 23.0
+    }
   }
 }
 ```
 
-**Response Error:**
-| HTTP Status | Kondisi |
-|------------|---------|
-| 400 Bad Request | Email atau password tidak diisi |
-| 401 Unauthorized | Email atau password salah |
+---
+
+### 5. Tambah Konsumsi Makanan
+
+| | |
+|---|---|
+| **Method** | `POST` |
+| **URL** | `/api/dashboard/tambah-konsumsi` |
+| **Auth** | ✅ Wajib — `Authorization: Bearer <token>` |
+
+Mencatat makanan yang dikonsumsi dan menambahkan kandungannya ke akumulasi harian.
+
+**Request Body (JSON):**
+```json
+{
+  "namaMakanan": "Nasi Goreng Telur",
+  "kalori": 350.0,
+  "protein": 12.5,
+  "karbo": 45.0,
+  "lemak": 10.0,
+  "serat": 2.5
+}
+```
+
+**Response Sukses (HTTP 200):**
+```json
+{
+  "status": "success",
+  "message": "Konsumsi berhasil dicatat!",
+  "data": {
+    "id": 1,
+    "userId": 1,
+    "namaMakanan": "Nasi Goreng Telur",
+    "kalori": 350.0,
+    "protein": 12.5,
+    "karbo": 45.0,
+    "lemak": 10.0,
+    "serat": 2.5,
+    "tanggal": "2026-06-08"
+  },
+  "konsumsiHariIni": {
+    "tanggal": "2026-06-08",
+    "kalori": 350.0,
+    "protein": 12.5,
+    "karbo": 45.0,
+    "lemak": 10.0,
+    "serat": 2.5,
+    "kaloriTerbakar": 0.0
+  }
+}
+```
+
+---
+
+### 6. Tambah Aktivitas (Mengurangi Kalori)
+
+| | |
+|---|---|
+| **Method** | `POST` |
+| **URL** | `/api/dashboard/tambah-aktivitas` |
+| **Auth** | ✅ Wajib — `Authorization: Bearer <token>` |
+
+Mencatat aktivitas olahraga dan mengurangi total kalori harian.
+
+**Request Body (JSON):**
+```json
+{
+  "namaAktivitas": "Jogging Sore",
+  "kalori": 300.0
+}
+```
+
+**Response Sukses (HTTP 200):**
+```json
+{
+  "status": "success",
+  "message": "Aktivitas berhasil dicatat!",
+  "data": {
+    "id": 1,
+    "userId": 1,
+    "namaAktivitas": "Jogging Sore",
+    "kalori": 300.0,
+    "tanggal": "2026-06-08"
+  },
+  "konsumsiHariIni": {
+    "tanggal": "2026-06-08",
+    "kalori": 350.0,
+    "protein": 12.5,
+    "karbo": 45.0,
+    "lemak": 10.0,
+    "serat": 2.5,
+    "kaloriTerbakar": 300.0
+  }
+}
+```
+
+---
+
+### 7. Ambil Semua Riwayat (All History)
+
+| | |
+|---|---|
+| **Method** | `GET` |
+| **URL** | `/api/dashboard/history` |
+| **Auth** | ✅ Wajib — `Authorization: Bearer <token>` |
+
+**Response Sukses (HTTP 200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "makanan": [
+      {
+        "id": 1,
+        "userId": 1,
+        "namaMakanan": "Nasi Goreng Telur",
+        "kalori": 350.0,
+        "protein": 12.5,
+        "karbo": 45.0,
+        "lemak": 10.0,
+        "serat": 2.5,
+        "tanggal": "2026-06-08"
+      }
+    ],
+    "aktivitas": [
+      {
+        "id": 1,
+        "userId": 1,
+        "namaAktivitas": "Jogging Sore",
+        "kalori": 300.0,
+        "tanggal": "2026-06-08"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 8. Ambil Riwayat Makanan Saja
+
+| | |
+|---|---|
+| **Method** | `GET` |
+| **URL** | `/api/dashboard/history/makanan` |
+| **Auth** | ✅ Wajib — `Authorization: Bearer <token>` |
+
+**Response Sukses (HTTP 200):**
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": 1,
+      "userId": 1,
+      "namaMakanan": "Nasi Goreng Telur",
+      "kalori": 350.0,
+      "protein": 12.5,
+      "karbo": 45.0,
+      "lemak": 10.0,
+      "serat": 2.5,
+      "tanggal": "2026-06-08"
+    }
+  ]
+}
+```
+
+---
+
+### 9. Ambil Riwayat Aktivitas Saja
+
+| | |
+|---|---|
+| **Method** | `GET` |
+| **URL** | `/api/dashboard/history/aktivitas` |
+| **Auth** | ✅ Wajib — `Authorization: Bearer <token>` |
+
+**Response Sukses (HTTP 200):**
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": 1,
+      "userId": 1,
+      "namaAktivitas": "Jogging Sore",
+      "kalori": 300.0,
+      "tanggal": "2026-06-08"
+    }
+  ]
+}
+```
 
 ---
 
 ## 🧪 Cara Testing Endpoint <a name="cara-testing-endpoint"></a>
 
-### Cara 1: Halaman Web (Termudah)
-Setelah server berjalan, buka browser: **http://localhost:8080**
-Halaman testing sudah tersedia, tinggal isi form dan klik tombol.
+### Cara 1: Menggunakan Postman
+1. Buat request baru di Postman.
+2. Tambahkan header: `Authorization: Bearer <token_kamu>`.
+3. Gunakan method dan body JSON yang sesuai dengan dokumentasi di atas.
 
-### Cara 2: Menggunakan Postman
-1. Download & install [Postman](https://www.postman.com/downloads/)
-2. Buat request baru → pilih method `POST`
-3. Masukkan URL endpoint
-4. Di tab `Body` → pilih `raw` → pilih `JSON`
-5. Tempel JSON body yang sesuai
-6. Klik `Send`
-
-### Cara 3: Menggunakan curl (Command Line)
+### Cara 2: Menggunakan curl
 ```bash
-# Register
-curl -X POST http://localhost:8080/api/auth/register \
+# Tambah Konsumsi Makanan
+curl -X POST http://localhost:8080/api/dashboard/tambah-konsumsi \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "password": "password123",
-    "beratBadan": 70,
-    "tinggiBadan": 170,
-    "tanggalLahir": "2000-01-01",
-    "target": "menurunkan_berat_badan",
-    "jenisKegiatan": "sedang"
-  }'
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{"namaMakanan": "Pisang", "kalori": 105, "karbo": 27}'
 
-# Login
-curl -X POST http://localhost:8080/api/auth/login \
+# Tambah Aktivitas Olahraga
+curl -X POST http://localhost:8080/api/dashboard/tambah-aktivitas \
   -H "Content-Type: application/json" \
-  -d '{"email": "test@example.com", "password": "password123"}'
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{"namaAktivitas": "Lari", "kalori": 250}'
+
+# Ambil Semua Riwayat
+curl -X GET http://localhost:8080/api/dashboard/history \
+  -H "Authorization: Bearer <TOKEN>"
 ```
 
 ---
 
-## 📚 Penjelasan Konsep <a name="penjelasan-konsep"></a>
+## 🧠 Penjelasan Konsep <a name="penjelasan-konsep"></a>
 
-### Apa itu REST API?
-REST API adalah cara dua aplikasi berkomunikasi melalui internet.
-- **Client** (aplikasi mobile/web) mengirim **Request**
-- **Server** (backend ini) memproses dan mengirim **Response**
-- Data diformat dalam **JSON** (teks yang mudah dibaca mesin)
+Proyek ini dirancang menggunakan konsep pemrograman berorientasi objek (OOP) di Java, serta menggunakan struktur data berupa Array, List, Map (LinkedHashMap), dan mekanisme Keamanan (Hashing). Berikut adalah dokumentasi penggunaannya:
 
-### Apa itu JSON?
-Format data yang digunakan untuk pertukaran informasi:
-```json
-{
-  "nama": "Budi",
-  "umur": 20,
-  "aktif": true
-}
-```
+### 1. Object-Oriented Programming (OOP)
+Konsep OOP diterapkan hampir di semua komponen karena Java menggunakan paradigma berbasis kelas.
 
-### Apa itu Token?
-Token adalah kode unik yang diberikan server setelah login berhasil.
-Token ini nantinya digunakan sebagai "tiket masuk" untuk mengakses
-fitur-fitur yang membutuhkan autentikasi.
+* **Class & Object (Kelas & Objek)**
+  * **Fungsi**: Kelas berfungsi sebagai cetakan (blueprint) untuk objek.
+  * **Cuplikan Kode (`app/model/User.java`):**
+    ```java
+    @Entity
+    @Table(name = "users")
+    public class User {
+        private String nama;
+        private String email;
+        // ...
+        public User(String email, String nama, ...) {
+            this.email = email;
+            this.nama = nama;
+        }
+    }
+    ```
+  * **Penjelasan**: Kelas `User` mendefinisikan struktur data pengguna di database. Objek nyata dibuat saat registrasi dengan memanggil constructor kelas ini: `new User(...)`.
 
-### Kenapa password di-hash?
-Untuk keamanan. Jika database bocor, peretas tidak bisa tahu password
-asli pengguna karena yang tersimpan hanyalah hasil hash (tidak bisa dikembalikan).
+* **Encapsulation (Enkapsulasi)**
+  * **Fungsi**: Membatasi akses langsung ke variabel instansi (field) dengan membungkusnya menggunakan modifier `private` dan menyediakan akses melalui method `public` (Getter & Setter).
+  * **Cuplikan Kode (`app/model/User.java`):**
+    ```java
+    private String email;
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+    ```
+  * **Penjelasan**: Atribut `email` bersifat `private` agar tidak bisa diubah langsung dari luar kelas tanpa validasi. Akses baca/tulis dijembatani oleh `getEmail()` dan `setEmail()`.
+
+* **Inheritance (Pewarisan) & Abstraction (Abstraksi)**
+  * **Fungsi**: Mewarisi sifat dan fungsi dari kelas atau interface lain untuk mengurangi penulisan kode berulang (redudansi).
+  * **Cuplikan Kode (`app/repository/MakananRiwayatRepository.java`):**
+    ```java
+    public interface MakananRiwayatRepository extends JpaRepository<MakananRiwayat, Long> {
+        List<MakananRiwayat> findByUserIdOrderByTanggalDescIdDesc(Long userId);
+    }
+    ```
+  * **Penjelasan**: Kelas repository mewarisi (`extends`) interface `JpaRepository` dari Spring Data JPA. Dengan ini, kita secara otomatis mendapatkan fitur CRUD database bawaan seperti `.save()`, `.findAll()`, dll., tanpa perlu menulis kodenya secara manual.
+
+---
+
+### 2. Penggunaan Array & List
+
+* **Array Biasa (`[]`)**
+  * **Fungsi**: Menyimpan sekumpulan data dengan tipe data yang sama dan ukuran yang tetap.
+  * **Cuplikan Kode (`app/controller/DashboardController.java`):**
+    ```java
+    String[] keys = {"kalori", "protein", "karbo", "lemak", "serat"};
+    for (String key : keys) {
+        double butuh = toDouble(kebutuhan.get(key));
+        // ...
+    }
+    ```
+  * **Penjelasan**: Array `keys` digunakan untuk menyimpan daftar kunci nutrisi yang akan dihitung sisa kebutuhannya secara berulang (looping) dalam satu proses.
+
+* **List (Dynamic Array)**
+  * **Fungsi**: Menyimpan kumpulan data objek yang ukurannya dapat bertambah dan berkurang secara dinamis.
+  * **Cuplikan Kode (`app/controller/AuthController.java`):**
+    ```java
+    List<String> validGender = Arrays.asList("pria", "wanita");
+    if (gender == null || !validGender.contains(gender.trim())) {
+        return badRequest("Gender tidak valid!");
+    }
+    ```
+  * **Penjelasan**: `validGender` bertipe `List<String>` digunakan untuk memvalidasi apakah input gender dari request body sesuai dengan pilihan yang diizinkan.
+
+---
+
+### 3. Penggunaan Hashing Map & Cryptographic Hashing
+
+* **Map & LinkedHashMap (Hashing Map)**
+  * **Fungsi**: Struktur data pasangan Kunci-Nilai (Key-Value) berbasis tabel hash. `LinkedHashMap` digunakan agar urutan data (insertion order) tetap terjaga saat dikonversi menjadi format JSON untuk response REST API.
+  * **Cuplikan Kode (`app/controller/DashboardController.java`):**
+    ```java
+    Map<String, Object> res = new LinkedHashMap<>();
+    res.put("status", "success");
+    res.put("data", data);
+    return ResponseEntity.ok(res);
+    ```
+  * **Penjelasan**: `LinkedHashMap` digunakan untuk merangkai response JSON yang dikirimkan kembali ke klien (frontend/Postman).
+
+* **Cryptographic Hashing (SHA-256 Hashing)**
+  * **Fungsi**: Mengamankan password pengguna dengan cara mengubah password teks biasa menjadi bentuk kode hash satu arah yang tidak bisa didekripsi kembali.
+  * **Cuplikan Kode (`app/util/HashUtils.java`):**
+    ```java
+    MessageDigest digest = MessageDigest.getInstance("SHA-256");
+    byte[] encodedHash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
+    ```
+  * **Penjelasan**: Kelas `HashUtils` menggunakan algoritma SHA-256 untuk memproses password pengguna sebelum disimpan ke database MySQL demi alasan keamanan.
 
 ---
 
 ## 👥 Kolaborasi
-
-### Untuk menjalankan proyek ini:
-1. Clone/download folder proyek ini
-2. Pastikan MySQL berjalan
-3. Jalankan: `.\mvnw.cmd spring-boot:run`
-4. Buka browser: `http://localhost:8080`
-
-### Jika ingin menambahkan endpoint baru:
-1. Tambahkan method di `AuthController.java` (atau buat controller baru)
-2. Jika butuh tabel baru, buat model baru di folder `model/`
-3. Buat repository baru di folder `repository/`
-4. Jalankan ulang server → tabel akan terbuat otomatis
+Setiap kali ada perubahan entity atau model database, Hibernate secara otomatis akan memperbarui tabel di database MySQL local (`db_stdata`).
 
 ---
 

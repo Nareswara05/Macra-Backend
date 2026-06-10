@@ -1,5 +1,12 @@
 D:\JAVA PROJECT\UAS\src\main\java\app\model\User.java
 D:\JAVA PROJECT\UAS\src\main\java\app\controller\AuthController.java
+D:\JAVA PROJECT\UAS\src\main\java\app\repository\MakananRiwayatRepository.java
 D:\JAVA PROJECT\UAS\src\main\java\app\repository\UserRepository.java
+D:\JAVA PROJECT\UAS\src\main\java\app\model\MakananRiwayat.java
+D:\JAVA PROJECT\UAS\src\main\java\app\repository\NutrisiHarianRepository.java
+D:\JAVA PROJECT\UAS\src\main\java\app\model\NutrisiHarian.java
+D:\JAVA PROJECT\UAS\src\main\java\app\controller\DashboardController.java
 D:\JAVA PROJECT\UAS\src\main\java\app\util\HashUtils.java
 D:\JAVA PROJECT\UAS\src\main\java\app\BackendApplication.java
+D:\JAVA PROJECT\UAS\src\main\java\app\model\AktivitasRiwayat.java
+D:\JAVA PROJECT\UAS\src\main\java\app\repository\AktivitasRiwayatRepository.java

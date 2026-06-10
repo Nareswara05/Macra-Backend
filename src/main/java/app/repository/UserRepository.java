@@ -74,4 +74,18 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @return true jika email sudah ada, false jika belum
      */
     boolean existsByEmail(String email);
+
+    /**
+     * Mencari user berdasarkan session token.
+     *
+     * Spring otomatis mengubah method ini menjadi SQL:
+     *   SELECT * FROM users WHERE token = ?
+     *
+     * Digunakan untuk autentikasi endpoint yang dilindungi login.
+     * Token dikirim melalui header: Authorization: Bearer <token>
+     *
+     * @param token Session token yang dicari
+     * @return Optional berisi User jika token valid, kosong jika tidak
+     */
+    Optional<User> findByToken(String token);
 }
