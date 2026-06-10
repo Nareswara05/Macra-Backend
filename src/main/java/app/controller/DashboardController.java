@@ -2,8 +2,12 @@ package app.controller;
 
 import app.model.NutrisiHarian;
 import app.model.User;
+import app.model.MakananRiwayat;
+import app.model.AktivitasRiwayat;
 import app.repository.NutrisiHarianRepository;
 import app.repository.UserRepository;
+import app.repository.MakananRiwayatRepository;
+import app.repository.AktivitasRiwayatRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -21,45 +26,7 @@ import java.util.Optional;
  * ============================================================
  *
  * Controller ini menyediakan endpoint untuk halaman dashboard
- * pengguna, yang menampilkan:
- *
- *   1. Kebutuhan nutrisi harian (dihitung dari data diri user):
- *      - Kalori  : berdasarkan BMR + TDEE + target badan
- *      - Protein : 25% kalori / 4
- *      - Karbo   : 50% kalori / 4
- *      - Lemak   : 25% kalori / 9
- *      - Serat   : 28 gram (nilai tetap)
- *
- *   2. Konsumsi nutrisi hari ini:
- *      - Diambil dari tabel nutrisi_harian berdasarkan tanggal hari ini
- *      - Jika belum ada data hari ini, semua nilai = 0
- *
- *   3. Sisa kebutuhan (kebutuhan - konsumsi):
- *      - Menunjukkan berapa nutrisi yang masih perlu dikonsumsi
- *
- * Rumus Kalkulasi:
- *   BMR (Mifflin-St Jeor):
- *     Pria  : (10 × BB) + (6.25 × TB) − (5 × usia) + 5
- *     Wanita: (10 × BB) + (6.25 × TB) − (5 × usia) − 161
- *
- *   TDEE = BMR × faktor_aktivitas
- *     ringan -> × 1.375
- *     sedang -> × 1.550
- *     berat  -> × 1.725
- *
- *   Kalori Target:
- *     menurunkan_berat_badan    -> TDEE - 500
- *     menstabilkan_berat_badan  -> TDEE
- *     menaikkan_berat_badan     -> TDEE + 300
- *
- * Autentikasi:
- *   Semua endpoint memerlukan header:
- *     Authorization: Bearer <token>
- *   Token didapat dari response login/register.
- *
- * Endpoints:
- *   GET  /api/dashboard               -> Data dashboard lengkap
- *   POST /api/dashboard/tambah-konsumsi -> Catat konsumsi makanan
+ * pengguna, riwayat konsumsi, dan riwayat aktivitas.
  *
  * ============================================================
  */
@@ -74,6 +41,12 @@ public class DashboardController {
     @Autowired
     private NutrisiHarianRepository nutrisiHarianRepository;
 
+    @Autowired
+    private MakananRiwayatRepository makananRiwayatRepository;
+
+    @Autowired
+    private AktivitasRiwayatRepository aktivitasRiwayatRepository;
+
     // ============================================================
     // GET /api/dashboard
     // ============================================================
@@ -81,27 +54,6 @@ public class DashboardController {
     /**
      * Endpoint utama dashboard — mengembalikan kebutuhan nutrisi harian
      * dan konsumsi nutrisi hari ini untuk pengguna yang sedang login.
-     *
-     * Cara pakai (dari Postman/aplikasi):
-     *   Method  : GET
-     *   URL     : http://localhost:8080/api/dashboard
-     *   Headers : Authorization: Bearer <token_dari_login>
-     *
-     * Response sukses (HTTP 200):
-     * {
-     *   "status": "success",
-     *   "data": {
-     *     "user": { "id": 1, "email": "...", "gender": "pria", ... },
-     *     "kebutuhanNutrisi": { "kalori": 1927.5, "protein": 120.5, ... },
-     *     "konsumsiHariIni": { "tanggal": "2026-06-07", "kalori": 450.0, ... },
-     *     "sisaKebutuhan": { "kalori": 1477.5, "protein": 90.5, ... }
-     *   }
-     * }
-     *
-     * Response gagal (HTTP 401): Token tidak valid / tidak disertakan
-     *
-     * @param authHeader Nilai header "Authorization" (format: "Bearer <token>")
-     * @return ResponseEntity berisi data dashboard lengkap
      */
     @GetMapping
     public ResponseEntity<?> getDashboard(
@@ -160,72 +112,197 @@ public class DashboardController {
     // ============================================================
 
     /**
-     * Endpoint untuk mencatat konsumsi nutrisi hari ini.
-     * Nilai yang dikirim akan DITAMBAHKAN ke total konsumsi hari ini.
-     * Data konsumsi otomatis ter-reset esok hari (karena disimpan by tanggal).
-     *
-     * Cara pakai (dari Postman/aplikasi):
-     *   Method  : POST
-     *   URL     : http://localhost:8080/api/dashboard/tambah-konsumsi
-     *   Headers : Authorization: Bearer <token_dari_login>
-     *   Body    : JSON (raw)
-     *   {
-     *     "kalori"  : 350.0,
-     *     "protein" : 25.0,
-     *     "karbo"   : 45.0,
-     *     "lemak"   : 10.0,
-     *     "serat"   : 3.5
-     *   }
-     *
-     * Semua field bersifat opsional (jika tidak dikirim, dianggap 0).
-     *
-     * Response sukses (HTTP 200):
-     *   { "status": "success", "message": "Konsumsi berhasil dicatat!", "konsumsiHariIni": {...} }
-     *
-     * @param authHeader Nilai header "Authorization"
-     * @param body       Data nutrisi yang dikonsumsi
-     * @return ResponseEntity berisi data konsumsi terbaru
+     * Endpoint untuk mencatat konsumsi makanan/minuman beserta nutrisinya.
      */
     @PostMapping("/tambah-konsumsi")
     public ResponseEntity<?> tambahKonsumsi(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody Map<String, Object> body) {
         try {
-            // --- Autentikasi: Validasi Token ---
             User user = getUserFromToken(authHeader);
             if (user == null)
                 return unauthorized("Token tidak valid atau tidak disertakan! " +
                         "Sertakan header: Authorization: Bearer <token>");
 
-            // --- Ambil nilai nutrisi dari body (default 0 jika tidak ada) ---
+            String namaMakanan = (String) body.get("namaMakanan");
+            if (namaMakanan == null || namaMakanan.trim().isEmpty())
+                return badRequest("Nama makanan wajib diisi!");
+
             double kalori  = parseDouble(body.get("kalori"),  0.0);
             double protein = parseDouble(body.get("protein"), 0.0);
             double karbo   = parseDouble(body.get("karbo"),   0.0);
             double lemak   = parseDouble(body.get("lemak"),   0.0);
             double serat   = parseDouble(body.get("serat"),   0.0);
 
-            // --- Cari atau buat record konsumsi hari ini ---
             LocalDate hari = LocalDate.now();
+
+            // Simpan riwayat makanan
+            MakananRiwayat riwayat = new MakananRiwayat(
+                user.getId(),
+                namaMakanan.trim(),
+                kalori,
+                protein,
+                karbo,
+                lemak,
+                serat,
+                hari
+            );
+            makananRiwayatRepository.save(riwayat);
+
+            // Update NutrisiHarian harian
             NutrisiHarian konsumsi = nutrisiHarianRepository
                     .findByUserIdAndTanggal(user.getId(), hari)
                     .orElse(new NutrisiHarian(user.getId(), hari));
 
-            // --- Tambahkan nilai konsumsi baru ke akumulasi ---
             konsumsi.setKaloriDikonsumsi(konsumsi.getKaloriDikonsumsi() + kalori);
             konsumsi.setProteinDikonsumsi(konsumsi.getProteinDikonsumsi() + protein);
             konsumsi.setKarboDikonsumsi(konsumsi.getKarboDikonsumsi() + karbo);
             konsumsi.setLemakDikonsumsi(konsumsi.getLemakDikonsumsi() + lemak);
             konsumsi.setSeratDikonsumsi(konsumsi.getSeratDikonsumsi() + serat);
-
-            // --- Simpan ke database ---
             nutrisiHarianRepository.save(konsumsi);
 
-            // --- Kirim Response ---
             Map<String, Object> res = new LinkedHashMap<>();
             res.put("status", "success");
             res.put("message", "Konsumsi berhasil dicatat!");
-            res.put("konsumsiHariIni", buildKonsumsiData(
-                    Optional.of(konsumsi), hari));
+            res.put("data", riwayat);
+            res.put("konsumsiHariIni", buildKonsumsiData(Optional.of(konsumsi), hari));
+            return ResponseEntity.ok(res);
+
+        } catch (Exception e) {
+            return serverError("Terjadi kesalahan server: " + e.getMessage());
+        }
+    }
+
+    // ============================================================
+    // POST /api/dashboard/tambah-aktivitas
+    // ============================================================
+
+    /**
+     * Endpoint untuk mencatat aktivitas fisik/olahraga yang membakar kalori.
+     */
+    @PostMapping("/tambah-aktivitas")
+    public ResponseEntity<?> tambahAktivitas(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody Map<String, Object> body) {
+        try {
+            User user = getUserFromToken(authHeader);
+            if (user == null)
+                return unauthorized("Token tidak valid atau tidak disertakan! " +
+                        "Sertakan header: Authorization: Bearer <token>");
+
+            String namaAktivitas = (String) body.get("namaAktivitas");
+            if (namaAktivitas == null || namaAktivitas.trim().isEmpty())
+                return badRequest("Nama aktivitas wajib diisi!");
+
+            double kalori = parseDouble(body.get("kalori"), 0.0);
+            if (kalori <= 0)
+                return badRequest("Nilai kalori wajib diisi dan harus lebih dari 0!");
+
+            LocalDate hari = LocalDate.now();
+
+            // Simpan riwayat aktivitas
+            AktivitasRiwayat riwayat = new AktivitasRiwayat(
+                user.getId(),
+                namaAktivitas.trim(),
+                kalori,
+                hari
+            );
+            aktivitasRiwayatRepository.save(riwayat);
+
+            // Update NutrisiHarian (tambahkan ke kaloriTerbakar)
+            NutrisiHarian konsumsi = nutrisiHarianRepository
+                    .findByUserIdAndTanggal(user.getId(), hari)
+                    .orElse(new NutrisiHarian(user.getId(), hari));
+            konsumsi.setKaloriTerbakar(konsumsi.getKaloriTerbakar() + kalori);
+            nutrisiHarianRepository.save(konsumsi);
+
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("status", "success");
+            res.put("message", "Aktivitas berhasil dicatat!");
+            res.put("data", riwayat);
+            res.put("konsumsiHariIni", buildKonsumsiData(Optional.of(konsumsi), hari));
+            return ResponseEntity.ok(res);
+
+        } catch (Exception e) {
+            return serverError("Terjadi kesalahan server: " + e.getMessage());
+        }
+    }
+
+    // ============================================================
+    // HISTORY ENDPOINTS
+    // ============================================================
+
+    /**
+     * Endpoint untuk mengambil semua riwayat (makanan & aktivitas).
+     */
+    @GetMapping("/history")
+    public ResponseEntity<?> getHistoryAll(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        try {
+            User user = getUserFromToken(authHeader);
+            if (user == null)
+                return unauthorized("Token tidak valid atau tidak disertakan!");
+
+            List<MakananRiwayat> makananList = makananRiwayatRepository
+                    .findByUserIdOrderByTanggalDescIdDesc(user.getId());
+            List<AktivitasRiwayat> aktivitasList = aktivitasRiwayatRepository
+                    .findByUserIdOrderByTanggalDescIdDesc(user.getId());
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("makanan", makananList);
+            data.put("aktivitas", aktivitasList);
+
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("status", "success");
+            res.put("data", data);
+            return ResponseEntity.ok(res);
+
+        } catch (Exception e) {
+            return serverError("Terjadi kesalahan server: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Endpoint untuk mengambil riwayat makanan saja.
+     */
+    @GetMapping("/history/makanan")
+    public ResponseEntity<?> getHistoryMakanan(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        try {
+            User user = getUserFromToken(authHeader);
+            if (user == null)
+                return unauthorized("Token tidak valid atau tidak disertakan!");
+
+            List<MakananRiwayat> makananList = makananRiwayatRepository
+                    .findByUserIdOrderByTanggalDescIdDesc(user.getId());
+
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("status", "success");
+            res.put("data", makananList);
+            return ResponseEntity.ok(res);
+
+        } catch (Exception e) {
+            return serverError("Terjadi kesalahan server: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Endpoint untuk mengambil riwayat aktivitas saja.
+     */
+    @GetMapping("/history/aktivitas")
+    public ResponseEntity<?> getHistoryAktivitas(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        try {
+            User user = getUserFromToken(authHeader);
+            if (user == null)
+                return unauthorized("Token tidak valid atau tidak disertakan!");
+
+            List<AktivitasRiwayat> aktivitasList = aktivitasRiwayatRepository
+                    .findByUserIdOrderByTanggalDescIdDesc(user.getId());
+
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("status", "success");
+            res.put("data", aktivitasList);
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
@@ -237,39 +314,20 @@ public class DashboardController {
     // HELPER METHODS — Kalkulasi Nutrisi
     // ============================================================
 
-    /**
-     * Menghitung kebutuhan nutrisi harian user berdasarkan data diri.
-     *
-     * Langkah kalkulasi:
-     *   1. Hitung usia dari tanggal lahir
-     *   2. Hitung BMR dengan rumus Mifflin-St Jeor (berbeda per gender)
-     *   3. Kalikan BMR dengan faktor aktivitas -> TDEE
-     *   4. Sesuaikan kalori berdasarkan target badan
-     *   5. Distribusikan kalori ke makronutrien
-     *
-     * @param user Object User dari database
-     * @return Map berisi kebutuhan kalori, protein, karbo, lemak, serat
-     */
     private Map<String, Object> hitungKebutuhanNutrisi(User user) {
         int usia = hitungUsia(user);
 
-        // --- Langkah 1: Hitung BMR (Basal Metabolic Rate) ---
-        // Mifflin-St Jeor Equation
         double bmr;
         if ("pria".equalsIgnoreCase(user.getGender())) {
-            // Pria: (10 × BB) + (6.25 × TB) − (5 × usia) + 5
             bmr = (10 * user.getBeratBadan())
                 + (6.25 * user.getTinggiBadan())
                 - (5 * usia) + 5;
         } else {
-            // Wanita: (10 × BB) + (6.25 × TB) − (5 × usia) − 161
             bmr = (10 * user.getBeratBadan())
                 + (6.25 * user.getTinggiBadan())
                 - (5 * usia) - 161;
         }
 
-        // --- Langkah 2: Hitung TDEE (Total Daily Energy Expenditure) ---
-        // Kalikan BMR dengan faktor aktivitas fisik
         double faktorAktivitas;
         switch (user.getJenisKegiatan()) {
             case "ringan": faktorAktivitas = 1.375; break;
@@ -278,24 +336,17 @@ public class DashboardController {
         }
         double tdee = bmr * faktorAktivitas;
 
-        // --- Langkah 3: Sesuaikan Kalori Berdasarkan Target ---
         double kaloriTarget;
         switch (user.getTarget()) {
             case "menurunkan_berat_badan": kaloriTarget = tdee - 500; break;
             case "menaikkan_berat_badan":  kaloriTarget = tdee + 300; break;
             default:                        kaloriTarget = tdee;       break; // menstabilkan
         }
-        // Pastikan kalori tidak negatif
         if (kaloriTarget < 1200) kaloriTarget = 1200;
 
-        // --- Langkah 4: Distribusi Makronutrien ---
-        // Protein : 25% kalori, 1 gram protein = 4 kkal
         double proteinGram = round2((kaloriTarget * 0.25) / 4);
-        // Karbo   : 50% kalori, 1 gram karbo   = 4 kkal
         double karboGram   = round2((kaloriTarget * 0.50) / 4);
-        // Lemak   : 25% kalori, 1 gram lemak   = 9 kkal
         double lemakGram   = round2((kaloriTarget * 0.25) / 9);
-        // Serat   : nilai tetap 28 gram/hari (rekomendasi WHO)
         double seratGram   = 28.0;
 
         Map<String, Object> kebutuhan = new LinkedHashMap<>();
@@ -307,14 +358,6 @@ public class DashboardController {
         return kebutuhan;
     }
 
-    /**
-     * Membangun Map data konsumsi hari ini dari Optional<NutrisiHarian>.
-     * Jika belum ada record (Optional kosong), semua nilai = 0.
-     *
-     * @param konsumsiOpt Optional berisi NutrisiHarian hari ini
-     * @param hari        Tanggal hari ini
-     * @return Map berisi data konsumsi hari ini
-     */
     private Map<String, Object> buildKonsumsiData(
             Optional<NutrisiHarian> konsumsiOpt, LocalDate hari) {
 
@@ -328,25 +371,18 @@ public class DashboardController {
             konsumsi.put("karbo",   round2(k.getKarboDikonsumsi()));
             konsumsi.put("lemak",   round2(k.getLemakDikonsumsi()));
             konsumsi.put("serat",   round2(k.getSeratDikonsumsi()));
+            konsumsi.put("kaloriTerbakar", round2(k.getKaloriTerbakar()));
         } else {
-            // Belum ada konsumsi hari ini — semua 0
             konsumsi.put("kalori",  0.0);
             konsumsi.put("protein", 0.0);
             konsumsi.put("karbo",   0.0);
             konsumsi.put("lemak",   0.0);
             konsumsi.put("serat",   0.0);
+            konsumsi.put("kaloriTerbakar", 0.0);
         }
         return konsumsi;
     }
 
-    /**
-     * Menghitung sisa kebutuhan nutrisi hari ini.
-     * Sisa = Kebutuhan - Konsumsi. Nilai minimum = 0 (tidak bisa negatif).
-     *
-     * @param kebutuhan      Map kebutuhan nutrisi harian
-     * @param konsumsiHariIni Map konsumsi nutrisi hari ini
-     * @return Map berisi sisa kebutuhan nutrisi
-     */
     private Map<String, Object> hitungSisaKebutuhan(
             Map<String, Object> kebutuhan, Map<String, Object> konsumsiHariIni) {
 
@@ -356,54 +392,45 @@ public class DashboardController {
         for (String key : keys) {
             double butuh = toDouble(kebutuhan.get(key));
             double konsumsi = toDouble(konsumsiHariIni.get(key));
-            double sisaNilai = round2(Math.max(0, butuh - konsumsi));
+            double sisaNilai;
+            if ("kalori".equals(key)) {
+                double terbakar = toDouble(konsumsiHariIni.get("kaloriTerbakar"));
+                sisaNilai = round2(Math.max(0, butuh - konsumsi + terbakar));
+            } else {
+                sisaNilai = round2(Math.max(0, butuh - konsumsi));
+            }
             sisa.put(key, sisaNilai);
         }
         return sisa;
     }
 
-    /**
-     * Menghitung usia pengguna dalam tahun berdasarkan tanggal lahir.
-     *
-     * @param user Object User
-     * @return Usia dalam tahun
-     */
     private int hitungUsia(User user) {
         return Period.between(user.getTanggalLahir(), LocalDate.now()).getYears();
     }
 
-    // ============================================================
-    // HELPER METHODS — Autentikasi Token
-    // ============================================================
-
-    /**
-     * Mengekstrak token dari header Authorization dan mencari user-nya.
-     *
-     * Format header yang valid: "Bearer <token>"
-     *
-     * @param authHeader Nilai header Authorization
-     * @return User jika token valid, null jika tidak valid
-     */
     private User getUserFromToken(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer "))
             return null;
 
-        String token = authHeader.substring(7).trim(); // Hapus "Bearer " di depan
+        String token = authHeader.substring(7).trim();
         if (token.isEmpty()) return null;
 
         Optional<User> userOpt = userRepository.findByToken(token);
         return userOpt.orElse(null);
     }
 
-    // ============================================================
-    // HELPER METHODS — Response Builder & Utility
-    // ============================================================
-
     private ResponseEntity<?> unauthorized(String msg) {
         Map<String, Object> err = new LinkedHashMap<>();
         err.put("status", "error");
         err.put("message", msg);
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(err);
+    }
+
+    private ResponseEntity<?> badRequest(String msg) {
+        Map<String, Object> err = new LinkedHashMap<>();
+        err.put("status", "error");
+        err.put("message", msg);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
     }
 
     private ResponseEntity<?> serverError(String msg) {
@@ -413,30 +440,16 @@ public class DashboardController {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
     }
 
-    /**
-     * Membulatkan nilai double ke 2 desimal.
-     *
-     * @param value Nilai yang akan dibulatkan
-     * @return Nilai yang sudah dibulatkan
-     */
     private double round2(double value) {
         return Math.round(value * 100.0) / 100.0;
     }
 
-    /**
-     * Mengubah Object dari JSON menjadi double, dengan nilai default jika null.
-     *
-     * @param val          Nilai dari JSON body
-     * @param defaultValue Nilai default jika val null atau tidak valid
-     * @return Double hasil parsing
-     */
     private double parseDouble(Object val, double defaultValue) {
         if (val == null) return defaultValue;
         try { return Double.parseDouble(val.toString()); }
         catch (NumberFormatException e) { return defaultValue; }
     }
 
-    /** Mengubah Object menjadi double (untuk kalkulasi sisa kebutuhan) */
     private double toDouble(Object val) {
         if (val == null) return 0.0;
         try { return Double.parseDouble(val.toString()); }

@@ -32,6 +32,7 @@ import java.time.LocalDate;
  * │ karbo_dikonsumsi    │ DOUBLE        │ Total karbohidrat (gram) hari ini       │
  * │ lemak_dikonsumsi    │ DOUBLE        │ Total lemak (gram) hari ini             │
  * │ serat_dikonsumsi    │ DOUBLE        │ Total serat (gram) hari ini             │
+ * │ kalori_terbakar     │ DOUBLE        │ Total kalori yang terbakar hari ini     │
  * └─────────────────────┴───────────────┴─────────────────────────────────────────┘
  *
  * Constraint UNIQUE (user_id, tanggal) memastikan hanya ada
@@ -58,7 +59,7 @@ public class NutrisiHarian {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    /** Tanggal konsumsi ini dicatat. Satu record per user per hari. */
+    /** Tanggal konsumsi ini dicatat. One record per user per day. */
     @Column(name = "tanggal", nullable = false)
     private LocalDate tanggal;
 
@@ -82,6 +83,10 @@ public class NutrisiHarian {
     @Column(name = "serat_dikonsumsi")
     private Double seratDikonsumsi = 0.0;
 
+    /** Total kalori yang terbakar hari ini (dalam kkal) */
+    @Column(name = "kalori_terbakar")
+    private Double kaloriTerbakar = 0.0;
+
     // ============================================================
     // CONSTRUCTORS
     // ============================================================
@@ -90,7 +95,7 @@ public class NutrisiHarian {
     public NutrisiHarian() {}
 
     /**
-     * Constructor untuk membuat record konsumsi baru (hari pertama konsumsi).
+     * Constructor untuk membuat record konsumsi baru.
      *
      * @param userId  ID user pemilik record
      * @param tanggal Tanggal konsumsi
@@ -103,6 +108,7 @@ public class NutrisiHarian {
         this.karboDikonsumsi = 0.0;
         this.lemakDikonsumsi = 0.0;
         this.seratDikonsumsi = 0.0;
+        this.kaloriTerbakar = 0.0;
     }
 
     // ============================================================
@@ -132,4 +138,7 @@ public class NutrisiHarian {
 
     public Double getSeratDikonsumsi() { return seratDikonsumsi; }
     public void setSeratDikonsumsi(Double seratDikonsumsi) { this.seratDikonsumsi = seratDikonsumsi; }
+
+    public Double getKaloriTerbakar() { return kaloriTerbakar; }
+    public void setKaloriTerbakar(Double kaloriTerbakar) { this.kaloriTerbakar = kaloriTerbakar; }
 }

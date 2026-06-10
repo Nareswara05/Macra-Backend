@@ -1,8 +1,12 @@
 app\controller\AuthController.class
-app\model\User.class
-app\repository\UserRepository.class
 app\controller\DashboardController.class
 app\BackendApplication.class
+app\model\User.class
+app\repository\UserRepository.class
+app\repository\AktivitasRiwayatRepository.class
+app\repository\MakananRiwayatRepository.class
 app\model\NutrisiHarian.class
 app\util\HashUtils.class
+app\model\MakananRiwayat.class
+app\model\AktivitasRiwayat.class
 app\repository\NutrisiHarianRepository.class
